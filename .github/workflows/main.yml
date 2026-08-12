@@ -1,0 +1,78 @@
+name: Build KianaBH3
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+
+          - name: linux-x64
+            os: ubuntu-latest
+            runtime: linux-x64
+
+          - name: linux-arm64
+            os: ubuntu-latest
+            runtime: linux-arm64
+
+          - name: win-x64
+            os: windows-latest
+            runtime: win-x64
+
+
+    runs-on: ${{ matrix.os }}
+
+    name: Build ${{ matrix.name }}
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v4
+
+
+    - name: Install .NET 9 SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+
+
+    - name: Restore
+      run: dotnet restore KianaBH.sln
+
+
+    - name: Build Publish
+      run: |
+        dotnet publish KianaBH/KianaBH.csproj \
+          -c Release \
+          -r ${{ matrix.runtime }} \
+          --self-contained true \
+          -p:PublishSingleFile=false \
+          -o publish/${{ matrix.name }}
+
+
+    - name: Compress
+      shell: bash
+      run: |
+        cd publish
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          7z a ../KianaBH-${{ matrix.name }}.zip ${{ matrix.name }}
+        else
+          zip -r ../KianaBH-${{ matrix.name }}.zip ${{ matrix.name }}
+        fi
+
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: KianaBH-${{ matrix.name }}
+        path: KianaBH-${{ matrix.name }}.zip
