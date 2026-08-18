@@ -1,4 +1,4 @@
-name: Build KianaBH3
+name: Build KianaBH3 Multi Platform
 
 on:
   workflow_dispatch:
@@ -6,73 +6,79 @@ on:
     branches:
       - main
 
-permissions:
-  contents: write
 
 jobs:
+
   build:
 
     strategy:
-      fail-fast: false
       matrix:
+
         include:
 
-          - name: linux-x64
-            os: ubuntu-latest
-            runtime: linux-x64
+          # Android Termux
+          - rid: linux-arm64
+            name: Android-Termux-arm64
 
-          - name: linux-arm64
-            os: ubuntu-latest
-            runtime: linux-arm64
+          # Linux服务器
+          - rid: linux-x64
+            name: Linux-x64
 
-          - name: win-x64
-            os: windows-latest
-            runtime: win-x64
+          # Windows电脑
+          - rid: win-x64
+            name: Windows-x64
 
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-24.04
 
-    name: Build ${{ matrix.name }}
 
     steps:
 
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
 
-    - name: Install .NET 9 SDK
+    - name: Setup dotnet 9
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 9.0.x
 
 
+    - name: Install tools
+      run:
+
+        sudo apt update
+
+        sudo apt install -y protobuf-compiler
+
+
     - name: Restore
-      run: dotnet restore KianaBH.sln
+      run:
+
+        dotnet restore
 
 
-    - name: Build Publish
+    - name: Publish
+
       run: |
-        dotnet publish KianaBH/KianaBH.csproj \
-          -c Release \
-          -r ${{ matrix.runtime }} \
-          --self-contained true \
-          -p:PublishSingleFile=false \
-          -o publish/${{ matrix.name }}
+
+        dotnet publish \
+        KianaBH/KianaBH.csproj \
+        -c Release \
+        -r ${{matrix.rid}} \
+        --self-contained false \
+        -o build/${{matrix.name}}
 
 
-    - name: Compress
-      shell: bash
-      run: |
-        cd publish
-        if [ "${{ runner.os }}" = "Windows" ]; then
-          7z a ../KianaBH-${{ matrix.name }}.zip ${{ matrix.name }}
-        else
-          zip -r ../KianaBH-${{ matrix.name }}.zip ${{ matrix.name }}
-        fi
 
+    - name: Upload
 
-    - name: Upload Artifact
       uses: actions/upload-artifact@v4
+
       with:
-        name: KianaBH-${{ matrix.name }}
-        path: KianaBH-${{ matrix.name }}.zip
+
+        name: KianaBH3-${{matrix.name}}
+
+        path: build/${{matrix.name}}
